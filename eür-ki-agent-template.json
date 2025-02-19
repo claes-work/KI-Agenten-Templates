@@ -1,0 +1,672 @@
+{
+  "name": "Invoice Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -440,
+        140
+      ],
+      "id": "d3b33f73-997c-4e1f-986a-9cb830034ec9",
+      "name": "Telegram Trigger",
+      "webhookId": "5e95e068-fbdb-4b27-acb4-f7d2879ea0b4",
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get text from input stream\nconst text = $input.first().json.ParsedResults[0].ParsedText;\n\nconst parsedData = {\n  invoiceNumber: text.match(/Rechnung Nr.\\s*(\\S+)/)?.[1],\n  invoiceDate: text.match(/Rechnungsdatum:\\s*(\\S+)/)?.[1],\n  totalAmount: text.match(/Gesamtbetrag:\\s*(\\S+)/)?.[1],\n  billingAddress: text.match(/Rechnungsadresse:\\s*(\\S+)/)?.[1],\n  dueDate: text.match(/Fälligkeitsdatum:\\s*(\\S+)/)?.[1],\n  notes: text.match(/Notizen:\\s*(\\S+)/)?.[1],\n};\n\nreturn [{ json: parsedData }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        40
+      ],
+      "id": "b46ea13e-aeed-40da-bec1-aedeaf948f6f",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.ParsedResults[0].ParsedText }}\n\nAnalysiere die Rechnung, die du als input bekommen hast und extrahiere die folgenden Daten aus dieser Rechnung:\n\n\"invoiceNumber\", \"invoiceDate\", \"invoiceMonth\", \"totalAmount\", \"vendor\", \"bookingText\", \"fileName\"\n\nGebe mir das ergebnis als json in der folgenden Struktur zurück:\n\n{\n  \"invoiceNumber\": \"\",\n  \"invoiceMonth\": \"\",\n  \"month\": \"\",\n  \"totalAmount\": \"\",\n  \"vendor\": \"\",\n  \"bookingText\": \"\"\n}\n\nStelle sicher, dass \"bookingText\" eine kurze und prägnant Auflistung dessen ist, was in der gesamten Rechnung erworden wurde. Füge keine weiteren Anmerkungen hinzu, ich will nur die Produktauflistung.\n\nStelle zusätzlich sicher sicher, dass \"invoiceMonth\" der ausgeschriebene Monat in deutscher Sprache ist (bsp.: \"März\")\n\n",
+              "role": "system"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        140,
+        220
+      ],
+      "id": "17c2025f-9d75-4127-9127-67f22c9f1cf5",
+      "name": "OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Alternative zu OpenAI\nWenn die Rechung einem immer gleichen Aufbau folgt. können Kosten gespart werden, indem ihr die Felder direkt extrahiert.",
+        "height": 320,
+        "width": 260
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        140,
+        -140
+      ],
+      "typeVersion": 1,
+      "id": "0efa0574-f74d-4a56-ac3d-3d9bf751d927",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $('OpenAI').item.json.message.content.invoiceMonth }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "https://drive.google.com/drive/folders/1TjWG_wIl1LOcb2m4vZva1bSeN2siduYC",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        200,
+        540
+      ],
+      "id": "38c62646-c6f9-46b3-9986-64ec9378e261",
+      "name": "Create Folder",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.message.document.file_id }}"
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -280,
+        140
+      ],
+      "id": "9961215d-c2cd-4101-8bca-18326138687f",
+      "name": "Download File",
+      "webhookId": "9e1a8747-d8a3-47f0-a48d-250c08f09481",
+      "alwaysOutputData": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "={{ $json.message.content.invoiceMonth }}\n",
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -80,
+        440
+      ],
+      "id": "f0048e8e-d157-40a6-85b9-a6cd9ccedd7c",
+      "name": "Search Folder",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b56136a5-b245-4b8e-94ac-bb1088881133",
+              "leftValue": "={{ $(\"Search Folder\").item.length === 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        60,
+        440
+      ],
+      "id": "4b8b75c7-1619-4525-83cc-086828244d79",
+      "name": "Exists"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "104TPwhXp50riXheGyP8w7LKuErs7VGmU-5IyyIXjqDc",
+          "mode": "list",
+          "cachedResultName": "EüR_2025",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/104TPwhXp50riXheGyP8w7LKuErs7VGmU-5IyyIXjqDc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Ausgaben",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/104TPwhXp50riXheGyP8w7LKuErs7VGmU-5IyyIXjqDc/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Rechnungs Nr.": "={{ $json.message.content.invoiceNumber }}",
+            "Rechnungsdatum": "={{ $json.message.content.invoiceDate }}",
+            "Gesamtbetrag": "={{ $json.message.content.totalAmount }}",
+            "Verkäufer": "={{ $json.message.content.vendor }}",
+            "Buchungstext / Beschreibung": "={{ $json.message.content.bookingText }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Rechnungs Nr.",
+              "displayName": "Rechnungs Nr.",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Rechnungsdatum",
+              "displayName": "Rechnungsdatum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Gesamtbetrag",
+              "displayName": "Gesamtbetrag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Verkäufer",
+              "displayName": "Verkäufer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Buchungstext / Beschreibung",
+              "displayName": "Buchungstext / Beschreibung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        480,
+        220
+      ],
+      "id": "760c877e-0a4b-411d-a632-8e1ed60f2b37",
+      "name": "Update EüR ",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $('Download File').item.json.result.file_id }}"
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        340,
+        440
+      ],
+      "id": "bab34e5a-18ea-40f6-8e4e-19713ed47425",
+      "name": "Get File",
+      "webhookId": "f9a17905-97ae-4814-90ff-cab268e1a22d",
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "=Rechnung_{{ $('OpenAI').item.json.message.content.invoiceNumber }}_{{$('OpenAI').item.json.message.content.invoiceDate.split(\"-\").reverse().join(\"_\")}}\n\n",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $(\"Search Folder\").item.length === 0 ? $(\"Search Folder\").item.json.id : $(\"Create Folder\").item.json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        480,
+        440
+      ],
+      "id": "b2f0211c-1d0a-4e1c-9ff2-27233c42447f",
+      "name": "Upload File",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {},
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -580,
+        320
+      ],
+      "id": "38356e42-0c63-4562-bc23-7f32ce9a1ab7",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputText": "={{ $json.subject }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "Bambu Lab Rechnung",
+              "description": "Identifiziere ausschließlich Rechnungs-E-Mails von Bambu Lab, erkennbar am Betreff, der mit 'Ihre Rechnung' beginnt und eine eindeutige Rechnungsnummer mit dem Präfix '#EN' enthält. Andere E-Mails von Bambu Lab oder Rechnungen von anderen Absendern dürfen nicht klassifiziert werden."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1,
+      "position": [
+        -440,
+        320
+      ],
+      "id": "f0542433-1df7-4696-bf42-fc8f85960e2a",
+      "name": "Text Classifier"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -420,
+        480
+      ],
+      "id": "0f1f5582-6ff0-468b-9213-b5478cd68f52",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_6677419842169748983"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -80,
+        620
+      ],
+      "id": "baf70bef-da47-4b8b-b084-9513f1c5d645",
+      "name": "Rechnung Erfasst",
+      "webhookId": "abc2bcde-fb27-4c40-a7e8-cb4703ad19ca",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ocr.space/parse/image",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apiKey",
+              "value": ""
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        220
+      ],
+      "id": "f1d96769-7f1c-469d-a8f2-487457ccffe2",
+      "name": "Analyze PDF"
+    },
+    {
+      "parameters": {
+        "chatId": "5355046437",
+        "text": "=Ich habe gerade einen neuen Beleg erfasst abgelegt und in deine EüR eingetragen:\n{{ $json.name }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        620,
+        440
+      ],
+      "id": "5b1487b2-1706-4be4-bab4-05cc5dd9bf4a",
+      "name": "Inform User",
+      "webhookId": "63f099fa-0d7f-4a09-90c8-535a746fed0b",
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Download File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Update EüR ",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Folder": {
+      "main": [
+        [
+          {
+            "node": "Get File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download File": {
+      "main": [
+        [
+          {
+            "node": "Analyze PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Folder": {
+      "main": [
+        [
+          {
+            "node": "Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exists": {
+      "main": [
+        [
+          {
+            "node": "Get File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get File": {
+      "main": [
+        [
+          {
+            "node": "Upload File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Classifier": {
+      "main": [
+        [
+          {
+            "node": "Analyze PDF",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Rechnung Erfasst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload File": {
+      "main": [
+        [
+          {
+            "node": "Inform User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze PDF": {
+      "main": [
+        [
+          {
+            "node": "OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e4244173-7ddd-41af-8c18-7e2a3f8bbb68",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9c06bc23b1a23160e3960ed6f733e332af8ebbf2e7eb3507d43983032cffc4ae"
+  },
+  "id": "1HcaCla2nWksO6x9",
+  "tags": []
+}
